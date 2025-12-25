@@ -4,6 +4,146 @@
 
 const ADMIN_PASSWORD = '2'; // Password: 1+1=2
 const PREDICTIONS_STORAGE_KEY = 'weatherPredictions';
+const GH_SETTINGS_KEY = 'githubSyncSettings';
+
+// Load GitHub settings from localStorage
+function loadGitHubSettings() {
+    const stored = localStorage.getItem(GH_SETTINGS_KEY);
+    if (stored) {
+        try {
+            const settings = JSON.parse(stored);
+            document.getElementById('gh-owner').value = settings.owner || '';
+            document.getElementById('gh-repo').value = settings.repo || '';
+            document.getElementById('gh-token').value = settings.token || '';
+            console.log('Admin: GitHub settings loaded');
+        } catch (e) {
+            console.error('Admin: Error loading GitHub settings', e);
+        }
+    }
+}
+
+// Save GitHub settings to localStorage
+function saveGitHubSettings() {
+    const owner = document.getElementById('gh-owner').value.trim();
+    const repo = document.getElementById('gh-repo').value.trim();
+    const token = document.getElementById('gh-token').value.trim();
+    
+    if (!owner || !repo || !token) {
+        alert('Please fill in all GitHub settings fields');
+        return;
+    }
+    
+    const settings = { owner, repo, token };
+    localStorage.setItem(GH_SETTINGS_KEY, JSON.stringify(settings));
+    
+    // Visual feedback
+    const status = document.getElementById('gh-status');
+    status.textContent = '✅ Settings saved locally!';
+    status.style.color = '#10b981';
+    status.style.display = 'block';
+    
+    console.log('Admin: GitHub settings saved');
+    
+    // Hide status after 3 seconds
+    setTimeout(() => {
+        status.style.display = 'none';
+    }, 3000);
+}
+
+// Test GitHub Connection
+async function testGitHubConnection() {
+    const owner = document.getElementById('gh-owner').value.trim();
+    const repo = document.getElementById('gh-repo').value.trim();
+    const token = document.getElementById('gh-token').value.trim();
+    const status = document.getElementById('gh-status');
+    
+    if (!owner || !repo || !token) {
+        alert('Please fill in all fields before testing');
+        return;
+    }
+    
+    status.textContent = '⏳ Testing connection...';
+    status.style.color = '#cbd5e1';
+    status.style.display = 'block';
+    
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/data.json`;
+    
+    try {
+        const response = await fetch(url, {
+            headers: { 'Authorization': `token ${token}` }
+        });
+        
+        if (response.ok) {
+            status.textContent = '✅ Connection Successful! Found data.json';
+            status.style.color = '#10b981';
+        } else {
+            const error = await response.json();
+            status.textContent = '❌ Connection Failed: ' + (error.message || 'Unknown error');
+            status.style.color = '#ef4444';
+        }
+    } catch (error) {
+        status.textContent = '❌ Error: ' + error.message;
+        status.style.color = '#ef4444';
+    }
+}
+
+// Sync predictions to GitHub
+async function syncToGitHub(predictions) {
+    const stored = localStorage.getItem(GH_SETTINGS_KEY);
+    if (!stored) {
+        console.warn('Admin: GitHub settings not found, skipping sync');
+        return;
+    }
+    
+    const settings = JSON.parse(stored);
+    const { owner, repo, token } = settings;
+    const path = 'data.json';
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+    
+    try {
+        console.log('Admin: Syncing to GitHub...');
+        
+        // 1. Get the current file's SHA
+        const getResponse = await fetch(url, {
+            headers: { 'Authorization': `token ${token}` }
+        });
+        
+        let sha = null;
+        if (getResponse.ok) {
+            const fileData = await getResponse.json();
+            sha = fileData.sha;
+        }
+        
+        // 2. Prepare the update
+        const content = btoa(unescape(encodeURIComponent(JSON.stringify(predictions, null, 2))));
+        const body = {
+            message: 'Update weather forecasts via Admin Panel',
+            content: content,
+            sha: sha // Required if file exists
+        };
+        
+        // 3. Send the update
+        const putResponse = await fetch(url, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(body)
+        });
+        
+        if (putResponse.ok) {
+            console.log('Admin: GitHub sync successful!');
+        } else {
+            const errorData = await putResponse.json();
+            console.error('Admin: GitHub sync failed', errorData);
+            alert('GitHub Sync Failed: ' + (errorData.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Admin: Error syncing to GitHub', error);
+        alert('Error syncing to GitHub: ' + error.message);
+    }
+}
 
 // Global state
 let currentPredictions = [];
@@ -64,6 +204,7 @@ function checkPassword() {
 
 // Load admin data
 async function loadAdminData() {
+    loadGitHubSettings(); // Load settings first
     await loadPredictionsForAdmin();
     updateAnalytics();
     setInterval(updateAnalytics, 5000);
@@ -140,6 +281,10 @@ async function deletePrediction(index) {
             currentPredictions.splice(index, 1);
             savePredictions(currentPredictions);
             displayPredictionsInAdmin(currentPredictions);
+            
+            // Sync to GitHub
+            await syncToGitHub(currentPredictions);
+            
             console.log('Admin: Delete successful, list updated');
             if (!skipConfirm) alert('Prediction deleted successfully!');
         } else {
@@ -182,6 +327,10 @@ async function addPrediction() {
         document.getElementById('pred-notes').value = '';
         
         displayPredictionsInAdmin(currentPredictions);
+        
+        // Sync to GitHub
+        await syncToGitHub(currentPredictions);
+        
         alert('Prediction added successfully!');
     } catch (error) {
         console.error('Admin: Error adding', error);
@@ -192,13 +341,26 @@ async function addPrediction() {
 window.deletePrediction = deletePrediction;
 window.addPrediction = addPrediction;
 window.checkPassword = checkPassword;
+window.saveGitHubSettings = saveGitHubSettings;
+window.testGitHubConnection = testGitHubConnection;
 
-// Enter key listener
+// Enter key listeners
 document.addEventListener('DOMContentLoaded', () => {
+    // Password input
     const passwordInput = document.getElementById('admin-password');
     if (passwordInput) {
         passwordInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') checkPassword();
         });
     }
+    
+    // GitHub settings inputs
+    ['gh-owner', 'gh-repo', 'gh-token'].forEach(id => {
+        const input = document.getElementById(id);
+        if (input) {
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') saveGitHubSettings();
+            });
+        }
+    });
 });

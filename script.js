@@ -23,10 +23,25 @@ async function fetchLiveKuwaitWeather() {
 }
 
 // ----------------------------------
-// Fetch predictions from localStorage or data.json
+// Fetch predictions from data.json (with cache busting)
 // ----------------------------------
 async function loadPredictions() {
-    // First, check localStorage (admin changes)
+    try {
+        // Always try to fetch from data.json first for cross-device sync
+        console.log('Fetching latest forecasts from data.json...');
+        const response = await fetch('data.json?t=' + Date.now());
+        
+        if (response.ok) {
+            const data = await response.json();
+            // Update localStorage as a local cache
+            localStorage.setItem('weatherPredictions', JSON.stringify(data));
+            return data;
+        }
+    } catch (error) {
+        console.error('Error fetching from data.json, trying localStorage:', error);
+    }
+    
+    // Fallback to localStorage if offline or fetch fails
     const stored = localStorage.getItem('weatherPredictions');
     if (stored) {
         try {
@@ -36,20 +51,7 @@ async function loadPredictions() {
         }
     }
     
-    // Fallback to data.json
-    try {
-        const response = await fetch('data.json?t=' + Date.now()); // Cache busting
-        
-        if (!response.ok) {
-            throw new Error('Failed to load predictions');
-        }
-        
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('Error loading predictions:', error);
-        return [];
-    }
+    return [];
 }
 
 // ----------------------------------
