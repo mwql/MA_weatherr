@@ -3,13 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FutureCast | Other Forecasts</title>
+    <title>FutureCast | Kuwait Live Weather</title>
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- نفس ملف الستايل بدون أي تغيير -->
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+
     <div class="background-blobs">
         <div class="blob blob-1"></div>
         <div class="blob blob-2"></div>
@@ -17,49 +21,32 @@
 
     <div class="main-container glass-panel">
         <header>
-            <h1>Global Forecasts</h1>
-            <p class="subtitle">What the experts say for <span id="target-date-inline">Today</span></p>
+            <a href="index.html">
+                <img src="img/Mahdi_dji1.png" alt="" width="280" height="41">
+            </a>
+            <p class="subtitle">
+                Live weather forecast for <span id="target-date-inline">Kuwait</span>
+            </p>
         </header>
 
         <section class="predictions-list-section">
+            <h3>Live Kuwait Weather</h3>
             <div class="predictions-grid">
-                
-                <div class="prediction-card">
-                    <div class="weather-icon">🌤️</div>
-                    <div class="prediction-details">
-                        <h4>Weather.com</h4>
-                        <p class="temp">22°C</p>
-                        <p class="note">Partly Cloudy, chance of rain 10%</p>
+                <div class="prediction-card" style="text-align: center; padding: 2rem;">
+                    <div id="weatherIcon" style="font-size: 4rem; margin-bottom: 1rem;">
+                        <!-- Weather icon will be loaded here -->
+                        <span style="font-size: 3rem;">🌤️</span>
                     </div>
+                    <h2 id="temperature" style="font-size: 3rem; margin: 1rem 0; color: #0ea5e9;">
+                        Loading...
+                    </h2>
+                    <p id="description" style="font-size: 1.2rem; color: #cbd5e1; text-transform: capitalize;">
+                        Fetching live weather data...
+                    </p>
+                    <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--text-muted);">
+                        📍 Kuwait City
+                    </p>
                 </div>
-
-                <div class="prediction-card">
-                    <div class="weather-icon">🌧️</div>
-                    <div class="prediction-details">
-                        <h4>AccuWeather</h4>
-                        <p class="temp">19°C</p>
-                        <p class="note">Light rain expected in the afternoon</p>
-                    </div>
-                </div>
-
-                <div class="prediction-card">
-                    <div class="weather-icon">☀️</div>
-                    <div class="prediction-details">
-                        <h4>BBC Weather</h4>
-                        <p class="temp">24°C</p>
-                        <p class="note">Sunny spells, light breeze</p>
-                    </div>
-                </div>
-
-                <div class="prediction-card">
-                    <div class="weather-icon">⛈️</div>
-                    <div class="prediction-details">
-                        <h4>Dark Sky</h4>
-                        <p class="temp">20°C</p>
-                        <p class="note">Thunderstorms likely in the evening</p>
-                    </div>
-                </div>
-
             </div>
         </section>
 
@@ -68,6 +55,48 @@
         </footer>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <!-- JavaScript للطقس الحي -->
+    <script>
+        // Get your free API key from: https://openweathermap.org/api
+        const apiKey = "e89f102cfd638cfbd540bdf7fa673649"; // ← Replace with your OpenWeatherMap API key
+        const city = "Kuwait";
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${apiKey}`;
+
+        // Check if API key is set
+        if (apiKey === "YOUR_API_KEY") {
+            document.getElementById("temperature").innerText = "⚠️";
+            document.getElementById("description").innerText = "Please add your OpenWeatherMap API key in the script";
+            document.getElementById("weatherIcon").innerHTML = "";
+        } else {
+            // Fetch live weather data
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('API request failed');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    const temp = Math.round(data.main.temp);
+                    const desc = data.weather[0].description;
+                    const icon = data.weather[0].icon;
+                    const humidity = data.main.humidity;
+                    const windSpeed = Math.round(data.wind.speed * 3.6); // Convert m/s to km/h
+
+                    document.getElementById("temperature").innerText = temp + "°C";
+                    document.getElementById("description").innerText = desc;
+                    document.getElementById("weatherIcon").innerHTML =
+                        `<img src="https://openweathermap.org/img/wn/${icon}@2x.png" alt="${desc}" style="width: 100px; height: 100px;">`;
+                })
+                .catch((error) => {
+                    console.error('Weather fetch error:', error);
+                    document.getElementById("temperature").innerText = "❌";
+                    document.getElementById("description").innerText = "Unable to load live weather data. Check API key or connection.";
+                    document.getElementById("weatherIcon").innerHTML = "";
+                });
+        }
+    </script>
+
 </body>
 </html>
+

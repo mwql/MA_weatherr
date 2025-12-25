@@ -3,88 +3,352 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FutureCast | Admin</title>
+    <title>Admin Panel - الارصاد المهدوية</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <style>
-        #admin-dashboard { display: none; }
-        #login-error { color: #ff6b6b; margin-top: 10px; display: none; }
+        :root {
+            --bg-color: #1a1a1a;
+            --card-bg: #2a2a2a;
+            --text-color: #e0e0e0;
+            --text-muted: #888888;
+            --primary-color: #3b82f6;
+            --primary-hover: #4a90ff;
+            --border-color: #3a3a3a;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* Login Section */
+        #login-section {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 80vh;
+        }
+
+        .login-box {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .login-box h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .login-box p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        input[type="password"],
+        input[type="text"],
+        input[type="date"],
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            background: #1a1a1a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-color);
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+        }
+
+        button {
+            padding: 12px 24px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: var(--primary-hover);
+        }
+
+        #error-msg {
+            display: none;
+            color: #ef4444;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+
+        /* Admin Panel */
+        #admin-panel {
+            display: none;
+        }
+
+        .header {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .header h1 {
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            font-size: 2rem;
+        }
+
+        .header p {
+            color: var(--text-muted);
+        }
+
+        /* Analytics Card */
+        .analytics-card {
+            background: var(--primary-color);
+            border: 1px solid #60a5fa;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .analytics-card h2 {
+            color: white;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            font-weight: 600;
+        }
+
+        .view-count {
+            font-size: 4rem;
+            font-weight: 800;
+            color: white;
+            margin: 20px 0;
+        }
+
+        .analytics-date {
+            color: #dbeafe;
+            font-size: 0.9rem;
+        }
+
+        /* Section */
+        .section {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .section h2 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .form-group label {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        .btn-primary {
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        /* Admin Prediction Cards */
+        .admin-prediction-card {
+            background: #1a1a1a;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: border-color 0.2s;
+        }
+
+        .admin-prediction-card:hover {
+            border-color: var(--primary-color);
+        }
+
+        .admin-pred-info h4 {
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+
+        .admin-pred-info p {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .admin-pred-info strong {
+            color: var(--text-color);
+        }
+
+        .delete-btn {
+            background: #ef4444;
+            padding: 8px 16px;
+            font-size: 0.9rem;
+        }
+
+        .delete-btn:hover {
+            background: #dc2626;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .admin-prediction-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+            
+            .delete-btn {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="background-blobs">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-    </div>
-
-    <div class="main-container glass-panel">
-        <header>
-            <h1>Admin Access</h1>
-            <p class="subtitle">Authorized Personnel Only</p>
-        </header>
-
+    <div class="container">
         <!-- Login Section -->
-        <section id="login-section">
-            <div class="input-group">
-                <label for="admin-password">Password</label>
-                <input type="password" id="admin-password" placeholder="Enter admin password">
-                <p id="login-error">Incorrect password.</p>
-            </div>
-            <button id="login-btn" class="btn-primary">Login</button>
-        </section>
-
-        <!-- Dashboard Section (Hidden by default) -->
-        <section id="admin-dashboard">
-            <section class="prediction-form-section">
-                <h3>Add Official Forecast</h3>
-                <form id="prediction-form">
-                    <div class="input-group">
-                        <label for="forecast-date">Forecast Date</label>
-                        <input type="date" id="forecast-date" required>
-                    </div>
-
-                    <div class="input-group">
-                        <label for="condition">Condition</label>
-                        <select id="condition" required>
-                            <option value="" disabled selected>Select condition...</option>
-                            <option value="Sunny">☀️ Sunny</option>
-                            <option value="Cloudy">☁️ Cloudy</option>
-                            <option value="Rainy">🌧️ Rainy</option>
-                            <option value="Stormy">⛈️ Stormy</option>
-                            <option value="Snowy">❄️ Snowy</option>
-                            <option value="Windy">💨 Windy</option>
-                        </select>
-                    </div>
-
-                    <div class="input-group">
-                        <label for="temperature">Temperature (°C)</label>
-                        <input type="number" id="temperature" placeholder="e.g. 24" required>
-                    </div>
-
-                    <div class="input-group">
-                        <label for="notes">Notes</label>
-                        <textarea id="notes" rows="3" placeholder="Any specific details?"></textarea>
-                    </div>
-
-                    <button type="submit" class="btn-primary">Upload Forecast</button>
-                </form>
-            </section>
-
-            <section class="predictions-list-section">
-                <h3>Manage Forecasts</h3>
-                <div id="predictions-list" class="predictions-grid">
-                    <!-- Predictions will be added here dynamically -->
+        <div id="login-section">
+            <div class="login-box">
+                <h1>🔐 Admin Panel</h1>
+                <p>Enter password to access admin dashboard</p>
+                <div class="input-group">
+                    <input type="password" id="admin-password" placeholder="Password (1+1=?)">
                 </div>
-            </section>
-        </section>
+                <button onclick="checkPassword()">Login</button>
+                <p id="error-msg">Incorrect password. Try again.</p>
+            </div>
+        </div>
 
-        <footer>
-            <a href="index.html" class="link-secondary">&larr; Back to Home</a>
-        </footer>
+        <!-- Admin Panel -->
+        <div id="admin-panel">
+            <!-- Header -->
+            <div class="header">
+                <h1>📊 Admin Dashboard</h1>
+                <p>Manage weather forecasts and view analytics</p>
+            </div>
+
+            <!-- Analytics Card -->
+            <div class="analytics-card">
+                <h2>📈 Today's Page Views</h2>
+                <div class="view-count" id="view-count">0</div>
+                <div class="analytics-date" id="analytics-date">Loading...</div>
+            </div>
+
+            <!-- Add New Prediction -->
+            <div class="section">
+                <h2>➕ Add New Forecast</h2>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>From Date *</label>
+                        <input type="date" id="pred-date" required>
+                    </div>
+                    <div class="form-group">
+                        <label>To Date (Optional)</label>
+                        <input type="date" id="pred-to-date">
+                    </div>
+                    <div class="form-group">
+                        <label>Temperature (°C) *</label>
+                        <input type="text" id="pred-temp" placeholder="e.g., 25" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Condition *</label>
+                        <input type="text" id="pred-condition" placeholder="e.g., Sunny, Cloudy, Rainy" required>
+                    </div>
+                    <div class="form-group full-width">
+                        <label>Notes (Optional)</label>
+                        <textarea id="pred-notes" placeholder="Additional weather information..."></textarea>
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="addPrediction()">Add Forecast</button>
+            </div>
+
+            <!-- Existing Predictions -->
+            <div class="section">
+                <h2>📋 Existing Forecasts</h2>
+                <div id="predictions-admin-list">
+                    <p style="color: #888; text-align: center;">Loading predictions...</p>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <script type="module" src="script.js"></script>
+    <!-- Scripts -->
+    <script src="analytics.js"></script>
+    <script src="admin.js"></script>
 </body>
 </html>

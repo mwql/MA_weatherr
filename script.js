@@ -1,23 +1,44 @@
-// GitHub Configuration
-const GITHUB_CONFIG = {
-    owner: 'mwql', // Your GitHub username
-    repo: 'Weather', // Your repository name
-    branch: 'main', // or 'master' depending on your default branch
-    dataFile: 'data.json'
-};
+// =============================
+// LIVE KUWAIT WEATHER API (ADDED)
+// =============================
+const KUWAIT_API_KEY = "6cf6b597227cd3370b52a776ca5824ac";
+const KUWAIT_WEATHER_URL =
+  `https://api.openweathermap.org/data/2.5/weather?q=Kuwait&units=metric&appid=${KUWAIT_API_KEY}`;
 
-// Get GitHub token from localStorage (set by admin)
-function getGitHubToken() {
-    // Pre-filled token for convenience (REMEMBER TO REVOKE AND CREATE NEW TOKEN LATER!)
-    const hardcodedToken = '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';
-    return localStorage.getItem('github_token') || hardcodedToken;
+async function fetchLiveKuwaitWeather() {
+    try {
+        const response = await fetch(KUWAIT_WEATHER_URL);
+        if (!response.ok) throw new Error("Weather API error");
+        const data = await response.json();
+
+        return {
+            temp: Math.round(data.main.temp),
+            desc: data.weather[0].description,
+            icon: data.weather[0].icon
+        };
+    } catch (error) {
+        console.error("Live weather error:", error);
+        return null;
+    }
 }
 
-// Fetch predictions from GitHub
+// ----------------------------------
+// Fetch predictions from localStorage or data.json
+// ----------------------------------
 async function loadPredictions() {
+    // First, check localStorage (admin changes)
+    const stored = localStorage.getItem('weatherPredictions');
+    if (stored) {
+        try {
+            return JSON.parse(stored);
+        } catch (error) {
+            console.error('Error parsing stored predictions:', error);
+        }
+    }
+    
+    // Fallback to data.json
     try {
-        const url = `https://raw.githubusercontent.com/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/${GITHUB_CONFIG.branch}/${GITHUB_CONFIG.dataFile}`;
-        const response = await fetch(url + '?t=' + Date.now()); // Cache busting
+        const response = await fetch('data.json?t=' + Date.now()); // Cache busting
         
         if (!response.ok) {
             throw new Error('Failed to load predictions');
@@ -31,75 +52,59 @@ async function loadPredictions() {
     }
 }
 
-// Save predictions to GitHub (requires token)
-async function savePredictions(predictions) {
-    const token = getGitHubToken();
-    
-    if (!token) {
-        alert('GitHub token not found! Please set your token first.');
-        return false;
-    }
-    
-    try {
-        // First, get the current file SHA
-        const getUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.dataFile}`;
-        const getResponse = await fetch(getUrl, {
-            headers: {
-                'Authorization': `token ${token}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
-        
-        let sha = null;
-        if (getResponse.ok) {
-            const fileData = await getResponse.json();
-            sha = fileData.sha;
-        }
-        
-        // Update the file
-        const content = btoa(JSON.stringify(predictions, null, 2));
-        const updateUrl = `https://api.github.com/repos/${GITHUB_CONFIG.owner}/${GITHUB_CONFIG.repo}/contents/${GITHUB_CONFIG.dataFile}`;
-        
-        const updateResponse = await fetch(updateUrl, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `token ${token}`,
-                'Accept': 'application/vnd.github.v3+json',
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: 'Update weather predictions',
-                content: content,
-                sha: sha,
-                branch: GITHUB_CONFIG.branch
-            })
-        });
-        
-        if (!updateResponse.ok) {
-            const error = await updateResponse.json();
-            throw new Error(error.message || 'Failed to save predictions');
-        }
-        
-        return true;
-    } catch (error) {
-        console.error('Error saving predictions:', error);
-        alert('Error saving: ' + error.message);
-        return false;
-    }
-}
-
+// ----------------------------------
 // Display predictions on the page
-function displayPredictions(predictions) {
+// ----------------------------------
+async function displayPredictions(predictions) {
     const listContainer = document.getElementById('predictions-list');
     const targetDateDisplay = document.getElementById('target-date-display');
     
     if (!listContainer) return;
     
     listContainer.innerHTML = '';
+
+    // -----------------------------
+    // LIVE KUWAIT WEATHER CARD (Only on other.html)
+    // -----------------------------
+    // Check if we're on other.html - only show live weather there
+    const isOtherPage = window.location.pathname.includes('other.html');
+    
+    if (isOtherPage) {
+        const liveWeather = await fetchLiveKuwaitWeather();
+        if (liveWeather) {
+            const liveCard = document.createElement('div');
+            liveCard.className = 'prediction-card';
+
+            liveCard.innerHTML = `
+                <div class="weather-icon">
+                    <img src="https://openweathermap.org/img/wn/${liveWeather.icon}@2x.png" alt="">
+                </div>
+                <div class="prediction-details">
+                    <h4>Kuwait (Live Now)</h4>
+                    <p class="temp">${liveWeather.temp}°C</p>
+                    <p class="note">${liveWeather.desc}</p>
+                </div>
+            `;
+            listContainer.appendChild(liveCard);
+        }
+    }
+    
+    // Normalize date format (handles "2026-1-1" -> "2026-01-01")
+    function normalizeDate(dateStr) {
+        const parts = dateStr.split('-');
+        if (parts.length === 3) {
+            const year = parts[0];
+            const month = parts[1].padStart(2, '0');
+            const day = parts[2].padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        return dateStr;
+    }
     
     // Update main header on index.html
     if (targetDateDisplay && predictions.length > 0) {
-        const latestDate = new Date(predictions[0].date);
+        const normalizedDate = normalizeDate(predictions[0].date);
+        const latestDate = new Date(normalizedDate);
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         targetDateDisplay.textContent = latestDate.toLocaleDateString('en-US', options);
     } else if (targetDateDisplay) {
@@ -107,13 +112,11 @@ function displayPredictions(predictions) {
     }
     
     if (predictions.length === 0) {
-        listContainer.innerHTML = '<p class="empty-state">No official forecasts yet.</p>';
+        listContainer.innerHTML += '<p class="empty-state">No official forecasts yet.</p>';
         return;
     }
     
-    const isAdmin = !!document.getElementById('admin-dashboard');
-    
-    predictions.forEach((pred, index) => {
+    predictions.forEach((pred) => {
         const card = document.createElement('div');
         card.className = 'prediction-card';
         
@@ -124,42 +127,50 @@ function displayPredictions(predictions) {
         else if (pred.condition.includes('Stormy')) icon = '⛈️';
         else if (pred.condition.includes('Snowy')) icon = '❄️';
         else if (pred.condition.includes('Windy')) icon = '💨';
+        else if (pred.condition.includes('drasy')) icon = '📚';
+        else if (pred.condition.includes('3aly')) icon = '🧑‍🧑‍🧒‍🧒';
         
-        let deleteBtn = '';
-        if (isAdmin) {
-            deleteBtn = `<button class="delete-btn" onclick="deletePrediction(${index})" style="margin-left: auto; background: #ef4444; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer;">Delete</button>`;
+        // Normalize and parse date
+        const normalizedDate = normalizeDate(pred.date);
+        const dateObj = new Date(normalizedDate + 'T00:00:00');
+        
+        // English month names
+        const englishMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const month = englishMonths[dateObj.getMonth()];
+        const day = dateObj.getDate();
+        const cardDate = `${month} ${day}`;
+        
+        // Handle "to date" if provided
+        let dateRange = cardDate;
+        if (pred.toDate) {
+            const normalizedToDate = normalizeDate(pred.toDate);
+            const toDateObj = new Date(normalizedToDate + 'T00:00:00');
+            const toMonth = englishMonths[toDateObj.getMonth()];
+            const toDay = toDateObj.getDate();
+            dateRange = `${cardDate} - ${toMonth} ${toDay}`;
         }
-        
-        const dateObj = new Date(pred.date + 'T00:00:00');
-        const cardDate = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
         card.innerHTML = `
             <div class="weather-icon">${icon}</div>
             <div class="prediction-details">
-                <h4>${pred.condition} <span style="font-size: 0.8rem; opacity: 0.6; font-weight: normal;">(${cardDate})</span></h4>
+                <h4>
+                    ${pred.condition}
+                    <span style="font-size: 0.8rem; opacity: 0.6; font-weight: normal;">
+                        (${dateRange})
+                    </span>
+                </h4>
                 <p class="temp">${pred.temperature}°C</p>
                 ${pred.notes ? `<p class="note">${pred.notes}</p>` : ''}
             </div>
-            ${deleteBtn}
         `;
         listContainer.appendChild(card);
     });
 }
 
-// Delete a prediction
-window.deletePrediction = async function(index) {
-    if (!confirm("Are you sure you want to delete this forecast?")) return;
-    
-    const predictions = await loadPredictions();
-    predictions.splice(index, 1);
-    
-    const success = await savePredictions(predictions);
-    if (success) {
-        displayPredictions(predictions);
-    }
-};
-
+// ----------------------------------
 // Initialize the app
+// ----------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
     // 1. Display "Today" on other.html
     const inlineDateDisplay = document.getElementById('target-date-inline');
@@ -168,74 +179,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         inlineDateDisplay.textContent = new Date().toLocaleDateString('en-US', options);
     }
     
-    // 2. Admin Login Logic (admin.html only)
-    const loginBtn = document.getElementById('login-btn');
-    const passwordInput = document.getElementById('admin-password');
-    const loginSection = document.getElementById('login-section');
-    const dashboardSection = document.getElementById('admin-dashboard');
-    const loginError = document.getElementById('login-error');
-    
-    if (loginBtn) {
-        loginBtn.addEventListener('click', () => {
-            const password = passwordInput.value;
-            if (password === '1') {
-                loginSection.style.display = 'none';
-                dashboardSection.style.display = 'block';
-                loadAndDisplayPredictions();
-            } else {
-                loginError.style.display = 'block';
-                passwordInput.value = '';
-            }
-        });
-    }
-    
-    // 3. Handle Form Submission (admin.html only)
-    const form = document.getElementById('prediction-form');
-    if (form) {
-        form.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const dateInput = document.getElementById('forecast-date').value;
-            const condition = document.getElementById('condition').value;
-            const temperature = document.getElementById('temperature').value;
-            const notes = document.getElementById('notes').value;
-            
-            if (!dateInput || !condition || !temperature) return;
-            
-            const predictions = await loadPredictions();
-            
-            predictions.unshift({
-                date: dateInput,
-                condition,
-                temperature,
-                notes,
-                timestamp: new Date().toISOString(),
-                author: 'Admin'
-            });
-            
-            const success = await savePredictions(predictions);
-            if (success) {
-                form.reset();
-                alert('Forecast uploaded successfully!');
-                // Wait a bit for GitHub to update, then reload
-                setTimeout(loadAndDisplayPredictions, 2000);
-            }
-        });
-    }
-    
-    // 4. Load and display predictions
+    // 2. Load and display predictions
     async function loadAndDisplayPredictions() {
         const predictions = await loadPredictions();
         displayPredictions(predictions);
     }
     
-    // Initial load
+    // Initial load + refresh every 60 seconds
     if (document.getElementById('predictions-list')) {
         loadAndDisplayPredictions();
-        
-        // Poll for updates every 5 seconds (only on index.html, not admin)
-        if (!document.getElementById('admin-dashboard')) {
-            setInterval(loadAndDisplayPredictions, 5000);
-        }
+        setInterval(loadAndDisplayPredictions, 60000);
     }
 });
