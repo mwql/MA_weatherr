@@ -4,6 +4,7 @@
 
 const ADMIN_PASSWORD = '2'; // Password: 1+1=2
 const PREDICTIONS_STORAGE_KEY = 'weatherPredictions';
+const ITHINK_STORAGE_KEY = 'ithinkMessage';
 const SB_SETTINGS_KEY = 'supabaseSyncSettings';
 
 // GLOBAL SUPABASE CONFIG (Added for cross-device sync)
@@ -18,6 +19,7 @@ window.toggleKeyVisibility = toggleKeyVisibility;
 window.addForecast = addPrediction; // Alias for compatibility if needed
 window.addPrediction = addPrediction;
 window.deletePrediction = deletePrediction;
+window.saveIThinkMessage = saveIThinkMessage;
 
 // Load Supabase settings from localStorage
 function loadSupabaseSettings() {
@@ -225,6 +227,90 @@ async function syncToSupabase(predictions) {
     }
 }
 
+// Sync predictions to Supabase
+async function syncToSupabase(predictions) {
+    // 1. Get credentials (Global first, then LocalStorage)
+    let url = SB_URL;
+    let key = SB_KEY;
+
+    if (!url || !key) {
+        const stored = localStorage.getItem(SB_SETTINGS_KEY);
+        if (stored) {
+            const settings = JSON.parse(stored);
+            url = url || settings.url;
+            key = key || settings.key;
+        }
+    }
+
+    if (!url || !key) {
+        console.warn('Admin: Supabase settings not found, skipping sync');
+        return;
+    }
+    
+    const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions`;
+    const lastStatus = document.getElementById('sync-last-status');
+    
+    try {
+        console.log('Admin: Syncing to Supabase...');
+        if (lastStatus) lastStatus.textContent = '⏳ Syncing...';
+        
+        // 1. Delete all existing records (PostgREST style)
+        const deleteResponse = await fetch(`${requestUrl}?id=gt.0`, {
+            method: 'DELETE',
+            headers: {
+                'apikey': key,
+                'Authorization': `Bearer ${key}`
+            }
+        });
+
+        if (!deleteResponse.ok) {
+            const errorData = await deleteResponse.json();
+            throw new Error(errorData.message || 'Failed to clear old predictions');
+        }
+        
+        // 2. Insert new records
+        if (predictions.length > 0) {
+            const sbPredictions = predictions.map(p => ({
+                date: p.date,
+                to_date: p.toDate || null,
+                temperature: p.temperature,
+                condition: p.condition,
+                notes: p.notes || null
+            }));
+
+            const insertResponse = await fetch(requestUrl, {
+                method: 'POST',
+                headers: {
+                    'apikey': key,
+                    'Authorization': `Bearer ${key}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify(sbPredictions)
+            });
+
+            if (!insertResponse.ok) {
+                const errorData = await insertResponse.json();
+                throw new Error(errorData.message || 'Failed to insert new predictions');
+            }
+        }
+        
+        console.log('Admin: Supabase sync successful!');
+        if (lastStatus) {
+            const now = new Date();
+            lastStatus.textContent = `✅ Last sync: ${now.toLocaleTimeString()}`;
+            lastStatus.style.color = '#10b981';
+        }
+    } catch (error) {
+        console.error('Admin: Error syncing to Supabase', error);
+        if (lastStatus) {
+            lastStatus.textContent = `❌ Sync error: ${error.message}`;
+            lastStatus.style.color = '#ef4444';
+        }
+        alert('Supabase Sync Failed: ' + error.message);
+    }
+}
+
 // Global state
 let currentPredictions = [];
 
@@ -333,8 +419,46 @@ function checkPassword() {
 async function loadAdminData() {
     loadSupabaseSettings(); // Load settings first
     await loadPredictionsForAdmin();
+    await loadIThinkMessage();
     updateAnalytics();
     setInterval(updateAnalytics, 5000);
+}
+
+async function loadIThinkMessage() {
+    const input = document.getElementById('ithink-message');
+    if (!input) return;
+
+    // Find the config item in currentPredictions
+    const configItem = currentPredictions.find(p => p.condition === '__ITHINK__');
+    if (configItem) {
+        input.value = configItem.notes;
+    } else {
+        // Default if not found
+        input.value = "اجواء ورياح باردة، سيتم تحديث الموقع بتاريخ (2026/01/01)";
+    }
+}
+
+async function saveIThinkMessage() {
+    const message = document.getElementById('ithink-message').value;
+    
+    // Find or create the config item
+    let configItem = currentPredictions.find(p => p.condition === '__ITHINK__');
+    if (configItem) {
+        configItem.notes = message;
+    } else {
+        currentPredictions.push({
+            date: '2000-01-01', // Dummy date
+            temperature: '0',    // Dummy temp
+            condition: '__ITHINK__',
+            notes: message
+        });
+    }
+
+    savePredictions(currentPredictions);
+    
+    // This now syncs EVERYTHING including the new "I Think" record
+    await syncToSupabase(currentPredictions);
+    alert('Message updated and synced with forecasts!');
 }
 
 // Update analytics
@@ -371,6 +495,9 @@ function displayPredictionsInAdmin(predictions) {
     }
     
     predictions.forEach((pred, index) => {
+        // Skip config items
+        if (pred.condition === '__ITHINK__') return;
+
         const card = document.createElement('div');
         card.className = 'admin-prediction-card';
         

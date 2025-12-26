@@ -120,6 +120,9 @@ async function displayPredictions(predictions) {
     
     listContainer.innerHTML = '';
 
+    // Filter out config items
+    const actualForecasts = predictions.filter(p => p.condition !== '__ITHINK__');
+
     // -----------------------------
     // LIVE KUWAIT WEATHER CARD (Only on other.html)
     // -----------------------------
@@ -169,12 +172,12 @@ async function displayPredictions(predictions) {
     // OFFICIAL FORECASTS (Only on index.html)
     // -----------------------------
     if (!isOtherPage) {
-        if (predictions.length === 0) {
+        if (actualForecasts.length === 0) {
             listContainer.innerHTML += '<p class="empty-state">No official forecasts yet.</p>';
             return;
         }
         
-        predictions.forEach((pred) => {
+        actualForecasts.forEach((pred) => {
             const card = document.createElement('div');
             card.className = 'prediction-card';
             
@@ -243,6 +246,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     // 2. Load and display predictions
     async function loadAndDisplayPredictions() {
         const predictions = await loadPredictions();
+        
+        // Update "I Think" message from config record
+        const iThinkConfig = predictions.find(p => p.condition === '__ITHINK__');
+        if (iThinkConfig) {
+            const iThinkElement = document.getElementById('i-think-text');
+            if (iThinkElement) iThinkElement.textContent = iThinkConfig.notes;
+        }
+
         displayPredictions(predictions);
     }
     
