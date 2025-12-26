@@ -53,7 +53,8 @@ async function loadPredictions() {
                     toDate: p.to_date,
                     temperature: p.temperature,
                     condition: p.condition,
-                    notes: p.notes
+                    notes: p.notes,
+                    uploader: p.uploader
                 }));
                 
                 localStorage.setItem('weatherPredictions', JSON.stringify(normalizedData));
@@ -81,7 +82,7 @@ async function loadPredictions() {
                 if (response.ok) {
                     const data = await response.json();
                     const normalizedData = data.map(p => ({
-                        date: p.date, toDate: p.to_date, temperature: p.temperature, condition: p.condition, notes: p.notes
+                        date: p.date, toDate: p.to_date, temperature: p.temperature, condition: p.condition, notes: p.notes, uploader: p.uploader
                     }));
                     localStorage.setItem('weatherPredictions', JSON.stringify(normalizedData));
                     return normalizedData;
@@ -222,6 +223,7 @@ async function displayPredictions(predictions) {
                         </span>
                     </h4>
                     <p class="temp">${pred.temperature}°C</p>
+                    ${pred.uploader ? `<p class="uploader" style="color: var(--accent-color); font-size: 0.85rem; margin-bottom: 4px;">By: ${pred.uploader}</p>` : ''}
                     ${pred.notes ? `<p class="note">${pred.notes}</p>` : ''}
                 </div>
             `;

@@ -191,7 +191,8 @@ async function syncToSupabase(predictions) {
                 to_date: p.toDate || null,
                 temperature: p.temperature,
                 condition: p.condition,
-                notes: p.notes || null
+                notes: p.notes || null,
+                uploader: p.uploader || null
             }));
 
             const insertResponse = await fetch(requestUrl, {
@@ -207,6 +208,43 @@ async function syncToSupabase(predictions) {
 
             if (!insertResponse.ok) {
                 const errorData = await insertResponse.json();
+                
+                // Fallback for missing 'uploader' column (Schema mismatch)
+                if (errorData.message && errorData.message.includes("Could not find the 'uploader' column")) {
+                    console.warn('Admin: Uploader column missing in DB, retrying without it...');
+                    
+                    const sbPredictionsFallback = predictions.map(p => ({
+                        date: p.date,
+                        to_date: p.toDate || null,
+                        temperature: p.temperature,
+                        condition: p.condition,
+                        notes: p.notes || null
+                        // uploader omitted
+                    }));
+
+                    const retryResponse = await fetch(requestUrl, {
+                        method: 'POST',
+                        headers: {
+                            'apikey': key,
+                            'Authorization': `Bearer ${key}`,
+                            'Content-Type': 'application/json',
+                            'Prefer': 'return=minimal'
+                        },
+                        body: JSON.stringify(sbPredictionsFallback)
+                    });
+
+                    if (retryResponse.ok) {
+                        console.log('Admin: Supabase sync successful (Fallback mode)');
+                        if (lastStatus) {
+                            const now = new Date();
+                            lastStatus.textContent = `⚠️ Partial Sync: 'Uploader' name not validated. Please update DB schema.`;
+                            lastStatus.style.color = '#f59e0b';
+                        }
+                        alert('Warning: Forecast synced, but "Uploader Name" was rejected by the database. Please add the "uploader" column to your Supabase table.');
+                        return; // Exit successfully
+                    }
+                }
+
                 throw new Error(errorData.message || 'Failed to insert new predictions');
             }
         }
@@ -227,89 +265,7 @@ async function syncToSupabase(predictions) {
     }
 }
 
-// Sync predictions to Supabase
-async function syncToSupabase(predictions) {
-    // 1. Get credentials (Global first, then LocalStorage)
-    let url = SB_URL;
-    let key = SB_KEY;
 
-    if (!url || !key) {
-        const stored = localStorage.getItem(SB_SETTINGS_KEY);
-        if (stored) {
-            const settings = JSON.parse(stored);
-            url = url || settings.url;
-            key = key || settings.key;
-        }
-    }
-
-    if (!url || !key) {
-        console.warn('Admin: Supabase settings not found, skipping sync');
-        return;
-    }
-    
-    const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions`;
-    const lastStatus = document.getElementById('sync-last-status');
-    
-    try {
-        console.log('Admin: Syncing to Supabase...');
-        if (lastStatus) lastStatus.textContent = '⏳ Syncing...';
-        
-        // 1. Delete all existing records (PostgREST style)
-        const deleteResponse = await fetch(`${requestUrl}?id=gt.0`, {
-            method: 'DELETE',
-            headers: {
-                'apikey': key,
-                'Authorization': `Bearer ${key}`
-            }
-        });
-
-        if (!deleteResponse.ok) {
-            const errorData = await deleteResponse.json();
-            throw new Error(errorData.message || 'Failed to clear old predictions');
-        }
-        
-        // 2. Insert new records
-        if (predictions.length > 0) {
-            const sbPredictions = predictions.map(p => ({
-                date: p.date,
-                to_date: p.toDate || null,
-                temperature: p.temperature,
-                condition: p.condition,
-                notes: p.notes || null
-            }));
-
-            const insertResponse = await fetch(requestUrl, {
-                method: 'POST',
-                headers: {
-                    'apikey': key,
-                    'Authorization': `Bearer ${key}`,
-                    'Content-Type': 'application/json',
-                    'Prefer': 'return=minimal'
-                },
-                body: JSON.stringify(sbPredictions)
-            });
-
-            if (!insertResponse.ok) {
-                const errorData = await insertResponse.json();
-                throw new Error(errorData.message || 'Failed to insert new predictions');
-            }
-        }
-        
-        console.log('Admin: Supabase sync successful!');
-        if (lastStatus) {
-            const now = new Date();
-            lastStatus.textContent = `✅ Last sync: ${now.toLocaleTimeString()}`;
-            lastStatus.style.color = '#10b981';
-        }
-    } catch (error) {
-        console.error('Admin: Error syncing to Supabase', error);
-        if (lastStatus) {
-            lastStatus.textContent = `❌ Sync error: ${error.message}`;
-            lastStatus.style.color = '#ef4444';
-        }
-        alert('Supabase Sync Failed: ' + error.message);
-    }
-}
 
 // Global state
 let currentPredictions = [];
@@ -352,7 +308,8 @@ async function initializePredictions() {
                     toDate: p.to_date,
                     temperature: p.temperature,
                     condition: p.condition,
-                    notes: p.notes
+                    notes: p.notes,
+                    uploader: p.uploader
                 }));
                 localStorage.setItem(PREDICTIONS_STORAGE_KEY, JSON.stringify(normalizedData));
                 return normalizedData;
@@ -509,6 +466,7 @@ function displayPredictionsInAdmin(predictions) {
                 <h4>${pred.condition}</h4>
                 <p><strong>Date:</strong> ${dateRange}</p>
                 <p><strong>Temperature:</strong> ${pred.temperature}°C</p>
+                ${pred.uploader ? `<p><strong>Uploader:</strong> ${pred.uploader}</p>` : ''}
                 ${pred.notes ? `<p><strong>Notes:</strong> ${pred.notes}</p>` : ''}
             </div>
             <button class="delete-btn" onclick="deletePrediction(${index})">Delete</button>
@@ -555,6 +513,7 @@ async function addPrediction() {
     const toDate = document.getElementById('pred-to-date').value;
     const temperature = document.getElementById('pred-temp').value;
     const condition = document.getElementById('pred-condition').value;
+    const uploader = document.getElementById('pred-uploader').value;
     const notes = document.getElementById('pred-notes').value;
     
     if (!date || !temperature || !condition) {
@@ -568,6 +527,7 @@ async function addPrediction() {
             temperature: temperature,
             condition: condition,
             toDate: toDate || undefined,
+            uploader: uploader || undefined,
             notes: notes || undefined
         };
         
@@ -578,6 +538,7 @@ async function addPrediction() {
         document.getElementById('pred-to-date').value = '';
         document.getElementById('pred-temp').value = '';
         document.getElementById('pred-condition').value = '';
+        document.getElementById('pred-uploader').value = '';
         document.getElementById('pred-notes').value = '';
         
         displayPredictionsInAdmin(currentPredictions);
