@@ -186,14 +186,23 @@ async function syncToSupabase(predictions) {
         
         // 2. Insert new records
         if (predictions.length > 0) {
-            const sbPredictions = predictions.map(p => ({
-                date: p.date,
-                to_date: p.toDate || null,
-                temperature: p.temperature,
-                condition: p.condition,
-                notes: p.notes || null,
-                uploader: p.uploader || null
-            }));
+            // WORKAROUND: Embed uploader in notes to avoid schema mismatch
+            const sbPredictions = predictions.map(p => {
+                let noteContent = p.notes || '';
+                // Append uploader tag if it exists
+                if (p.uploader) {
+                    noteContent += ` {{uploader:${p.uploader}}}`;
+                }
+                
+                return {
+                    date: p.date,
+                    to_date: p.toDate || null,
+                    temperature: p.temperature,
+                    condition: p.condition,
+                    notes: noteContent.trim() || null
+                    // uploader field intentionally omitted to fit schema
+                };
+            });
 
             const insertResponse = await fetch(requestUrl, {
                 method: 'POST',
@@ -208,43 +217,6 @@ async function syncToSupabase(predictions) {
 
             if (!insertResponse.ok) {
                 const errorData = await insertResponse.json();
-                
-                // Fallback for missing 'uploader' column (Schema mismatch)
-                if (errorData.message && errorData.message.includes("Could not find the 'uploader' column")) {
-                    console.warn('Admin: Uploader column missing in DB, retrying without it...');
-                    
-                    const sbPredictionsFallback = predictions.map(p => ({
-                        date: p.date,
-                        to_date: p.toDate || null,
-                        temperature: p.temperature,
-                        condition: p.condition,
-                        notes: p.notes || null
-                        // uploader omitted
-                    }));
-
-                    const retryResponse = await fetch(requestUrl, {
-                        method: 'POST',
-                        headers: {
-                            'apikey': key,
-                            'Authorization': `Bearer ${key}`,
-                            'Content-Type': 'application/json',
-                            'Prefer': 'return=minimal'
-                        },
-                        body: JSON.stringify(sbPredictionsFallback)
-                    });
-
-                    if (retryResponse.ok) {
-                        console.log('Admin: Supabase sync successful (Fallback mode)');
-                        if (lastStatus) {
-                            const now = new Date();
-                            lastStatus.textContent = `⚠️ Partial Sync: 'Uploader' name not validated. Please update DB schema.`;
-                            lastStatus.style.color = '#f59e0b';
-                        }
-                        alert('Warning: Forecast synced, but "Uploader Name" was rejected by the database. Please add the "uploader" column to your Supabase table.');
-                        return; // Exit successfully
-                    }
-                }
-
                 throw new Error(errorData.message || 'Failed to insert new predictions');
             }
         }
@@ -303,14 +275,28 @@ async function initializePredictions() {
             
             if (response.ok) {
                 const data = await response.json();
-                const normalizedData = data.map(p => ({
-                    date: p.date,
-                    toDate: p.to_date,
-                    temperature: p.temperature,
-                    condition: p.condition,
-                    notes: p.notes,
-                    uploader: p.uploader
-                }));
+                const normalizedData = data.map(p => {
+                    let uploader = null;
+                    let notes = p.notes;
+                    
+                    // Extract uploader from notes tag {{uploader:NAME}}
+                    if (notes && notes.includes('{{uploader:')) {
+                        const match = notes.match(/{{uploader:(.*?)}}/);
+                        if (match) {
+                            uploader = match[1];
+                            notes = notes.replace(match[0], '').trim();
+                        }
+                    }
+
+                    return {
+                        date: p.date,
+                        toDate: p.to_date,
+                        temperature: p.temperature,
+                        condition: p.condition,
+                        notes: notes,
+                        uploader: uploader
+                    };
+                });
                 localStorage.setItem(PREDICTIONS_STORAGE_KEY, JSON.stringify(normalizedData));
                 return normalizedData;
             }

@@ -48,14 +48,28 @@ async function loadPredictions() {
             if (response.ok) {
                 const data = await response.json();
                 // Map back to the expected local format
-                const normalizedData = data.map(p => ({
-                    date: p.date,
-                    toDate: p.to_date,
-                    temperature: p.temperature,
-                    condition: p.condition,
-                    notes: p.notes,
-                    uploader: p.uploader
-                }));
+                const normalizedData = data.map(p => {
+                    let uploader = null;
+                    let notes = p.notes;
+                    
+                    // Extract uploader from notes tag {{uploader:NAME}}
+                    if (notes && notes.includes('{{uploader:')) {
+                        const match = notes.match(/{{uploader:(.*?)}}/);
+                        if (match) {
+                            uploader = match[1];
+                            notes = notes.replace(match[0], '').trim();
+                        }
+                    }
+
+                    return {
+                        date: p.date, 
+                        toDate: p.to_date, 
+                        temperature: p.temperature, 
+                        condition: p.condition, 
+                        notes: notes, 
+                        uploader: uploader
+                    };
+                });
                 
                 localStorage.setItem('weatherPredictions', JSON.stringify(normalizedData));
                 return normalizedData;
@@ -81,9 +95,27 @@ async function loadPredictions() {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    const normalizedData = data.map(p => ({
-                        date: p.date, toDate: p.to_date, temperature: p.temperature, condition: p.condition, notes: p.notes, uploader: p.uploader
-                    }));
+                    const normalizedData = data.map(p => {
+                        let uploader = null;
+                        let notes = p.notes;
+                        
+                        if (notes && notes.includes('{{uploader:')) {
+                            const match = notes.match(/{{uploader:(.*?)}}/);
+                            if (match) {
+                                uploader = match[1];
+                                notes = notes.replace(match[0], '').trim();
+                            }
+                        }
+
+                        return {
+                            date: p.date, 
+                            toDate: p.to_date, 
+                            temperature: p.temperature, 
+                            condition: p.condition, 
+                            notes: notes, 
+                            uploader: uploader
+                        };
+                    });
                     localStorage.setItem('weatherPredictions', JSON.stringify(normalizedData));
                     return normalizedData;
                 }
