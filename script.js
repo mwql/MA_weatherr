@@ -23,23 +23,25 @@ async function fetchLiveKuwaitWeather() {
 }
 
 // ----------------------------------
+// GLOBAL SUPABASE CONFIG (Added for cross-device sync)
+// ----------------------------------
+const SB_URL = 'https://jfmvebvwovibxuxskrcd.supabase.co';
+const SB_KEY = 'sb_publishable_YSsIGJW7AQuh37VqbwmDWg_fmRZVXVh';
+
+// ----------------------------------
 // Fetch predictions from Supabase (fallback to localStorage)
 // ----------------------------------
 async function loadPredictions() {
-    const SB_SETTINGS_KEY = 'supabaseSyncSettings';
-    const storedSettings = localStorage.getItem(SB_SETTINGS_KEY);
-    
-    if (storedSettings) {
+    // 1. Try to fetch from Supabase using global config
+    if (SB_URL && SB_KEY) {
         try {
-            const settings = JSON.parse(storedSettings);
-            const { url, key } = settings;
-            const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions?order=date.desc`;
+            const requestUrl = `${SB_URL.replace(/\/$/, '')}/rest/v1/predictions?order=date.desc`;
             
             console.log('Fetching latest forecasts from Supabase...');
             const response = await fetch(requestUrl, {
                 headers: { 
-                    'apikey': key,
-                    'Authorization': `Bearer ${key}`
+                    'apikey': SB_KEY,
+                    'Authorization': `Bearer ${SB_KEY}`
                 }
             });
             
@@ -60,6 +62,32 @@ async function loadPredictions() {
         } catch (error) {
             console.error('Error fetching from Supabase:', error);
         }
+    }
+    
+    // 2. Try localStorage settings (User override)
+    const SB_SETTINGS_KEY = 'supabaseSyncSettings';
+    const storedSettings = localStorage.getItem(SB_SETTINGS_KEY);
+    
+    if (storedSettings) {
+        try {
+            const settings = JSON.parse(storedSettings);
+            const url = settings.url;
+            const key = settings.key;
+            if (url && key) {
+                const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions?order=date.desc`;
+                const response = await fetch(requestUrl, {
+                    headers: { 'apikey': key, 'Authorization': `Bearer ${key}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    const normalizedData = data.map(p => ({
+                        date: p.date, toDate: p.to_date, temperature: p.temperature, condition: p.condition, notes: p.notes
+                    }));
+                    localStorage.setItem('weatherPredictions', JSON.stringify(normalizedData));
+                    return normalizedData;
+                }
+            }
+        } catch (e) {}
     }
     
     // Fallback to localStorage if offline, fetch fails, or no settings

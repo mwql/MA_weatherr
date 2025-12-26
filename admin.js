@@ -6,6 +6,10 @@ const ADMIN_PASSWORD = '2'; // Password: 1+1=2
 const PREDICTIONS_STORAGE_KEY = 'weatherPredictions';
 const SB_SETTINGS_KEY = 'supabaseSyncSettings';
 
+// GLOBAL SUPABASE CONFIG (Added for cross-device sync)
+const SB_URL = 'https://jfmvebvwovibxuxskrcd.supabase.co';
+const SB_KEY = 'sb_publishable_YSsIGJW7AQuh37VqbwmDWg_fmRZVXVh';
+
 // Make functions global immediately (Top of file to ensure they are available to UI)
 window.checkPassword = checkPassword;
 window.saveSupabaseSettings = saveSupabaseSettings;
@@ -18,13 +22,18 @@ window.deletePrediction = deletePrediction;
 // Load Supabase settings from localStorage
 function loadSupabaseSettings() {
     console.log('Admin: loadSupabaseSettings called');
+    
+    // Fill with global config first if available
+    if (SB_URL) document.getElementById('sb-url').value = SB_URL;
+    if (SB_KEY) document.getElementById('sb-key').value = SB_KEY;
+
     const stored = localStorage.getItem(SB_SETTINGS_KEY);
     if (stored) {
         try {
             const settings = JSON.parse(stored);
-            if (document.getElementById('sb-url')) document.getElementById('sb-url').value = settings.url || '';
-            if (document.getElementById('sb-key')) document.getElementById('sb-key').value = settings.key || '';
-            console.log('Admin: Supabase settings loaded into UI');
+            if (settings.url) document.getElementById('sb-url').value = settings.url;
+            if (settings.key) document.getElementById('sb-key').value = settings.key;
+            console.log('Admin: Supabase settings loaded (LocalStorage Override)');
         } catch (e) {
             console.error('Admin: Error loading Supabase settings', e);
         }
@@ -92,7 +101,7 @@ async function testSupabaseConnection() {
     const status = document.getElementById('sb-status');
     
     if (!url || !key) {
-        alert('Please fill in all fields before testing');
+        alert('Please fill in both fields before testing');
         return;
     }
     
@@ -134,14 +143,24 @@ async function testSupabaseConnection() {
 
 // Sync predictions to Supabase
 async function syncToSupabase(predictions) {
-    const stored = localStorage.getItem(SB_SETTINGS_KEY);
-    if (!stored) {
+    // 1. Get credentials (Global first, then LocalStorage)
+    let url = SB_URL;
+    let key = SB_KEY;
+
+    if (!url || !key) {
+        const stored = localStorage.getItem(SB_SETTINGS_KEY);
+        if (stored) {
+            const settings = JSON.parse(stored);
+            url = url || settings.url;
+            key = key || settings.key;
+        }
+    }
+
+    if (!url || !key) {
         console.warn('Admin: Supabase settings not found, skipping sync');
         return;
     }
     
-    const settings = JSON.parse(stored);
-    const { url, key } = settings;
     const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions`;
     const lastStatus = document.getElementById('sync-last-status');
     
@@ -150,7 +169,6 @@ async function syncToSupabase(predictions) {
         if (lastStatus) lastStatus.textContent = '⏳ Syncing...';
         
         // 1. Delete all existing records (PostgREST style)
-        // Note: For production, you might want to only delete specific records
         const deleteResponse = await fetch(`${requestUrl}?id=gt.0`, {
             method: 'DELETE',
             headers: {
@@ -166,7 +184,6 @@ async function syncToSupabase(predictions) {
         
         // 2. Insert new records
         if (predictions.length > 0) {
-            // Map predictions to table structure
             const sbPredictions = predictions.map(p => ({
                 date: p.date,
                 to_date: p.toDate || null,
@@ -215,12 +232,23 @@ let currentPredictions = [];
 async function initializePredictions() {
     console.log('Admin: Initializing predictions...');
     
-    // 1. Try to fetch from Supabase if settings exist
-    const sbStored = localStorage.getItem(SB_SETTINGS_KEY);
-    if (sbStored) {
+    // 1. Try to fetch from Supabase (Global first, then LocalStorage)
+    let url = SB_URL;
+    let key = SB_KEY;
+
+    if (!url || !key) {
+        const sbStored = localStorage.getItem(SB_SETTINGS_KEY);
+        if (sbStored) {
+            try {
+                const settings = JSON.parse(sbStored);
+                url = settings.url;
+                key = settings.key;
+            } catch (e) {}
+        }
+    }
+
+    if (url && key) {
         try {
-            const settings = JSON.parse(sbStored);
-            const { url, key } = settings;
             const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions?order=date.desc`;
             
             console.log('Admin: Fetching from Supabase...');
