@@ -8,50 +8,110 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        :root {
+            --bg-color: #0c0c14;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-color: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --accent-color: #06b6d4;
+            --glass-bg: rgba(15, 23, 42, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        body {
+            background-color: var(--bg-color) !important;
+            background: radial-gradient(circle at 50% 50%, #171725 0%, #0c0c14 100%) !important;
+            color: var(--text-color);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .background-blobs {
+            display: none !important;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .header-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 32px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+
+        .section-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 32px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+        }
+
+        /* Overriding some style.css defaults for the new layout */
+        .main-container {
+            background: transparent !important;
+            border: none !important;
+            backdrop-filter: none !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            max-width: none !important;
+        }
+    </style>
 </head>
 <body>
     
-    <div class="background-blobs">
-        
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-        <div class="blob blob-3"></div>
-    </div>
-
-    <div class="main-container glass-panel">
-        <header>
-            <a href="index.html"><img src="img/Mahdi_dji1.png" alt="" width="280" height="41" ;"></a>
-            <p class="subtitle">Predict the weather,  this month.</p>
+    <div class="container">
+        <header class="header-panel">
+            <a href="index.html"><img src="img/Mahdawi_Weather.png" alt="Mahdawi Weather Logo" width="280"></a>
+            <p class="subtitle">Predict the weather, this month.</p>
         </header>
 
-        <section class="date-display">
+        <section class="section-panel date-display">
             <p>Target Date:</p>
             <h2 id="target-date-display">From 2025-12-5 to 2025-12-25</h2>
         </section>
 
-        <!-- ================================================================= -->
-        <!--          👇 EDIT YOUR CUSTOM CONTENT BELOW 👇                     -->
-        <!-- ================================================================= -->
-        <!-- You can change the text, add images, links, or any HTML you want -->
-        <section class="custom-section" style="margin-bottom: 2.5rem; padding: 1.5rem; background: rgba(255, 255, 255, 0.05); border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.1); text-align: center;">
-            <h3 style="margin-bottom: 0.5rem; color: #0ea5e9; font-size: 1.1rem;">i think</h3>
-            <p style="color: #cbd5e1; line-height: 1.6;">اجواء ورياح باردة، سيتم تحديث الموقع بتاريخ (2026/01/01)<p>
+        <section class="section-panel custom-section">
+            <h3>i think</h3>
+            <p>اجواء ورياح باردة، سيتم تحديث الموقع بتاريخ (2026/01/01)<p>
         </section>
-        <!-- ================================================================= -->
-        <!--          👆 END OF CUSTOM CONTENT 👆                              -->
-        <!-- ================================================================= -->
 
-        <section class="predictions-list-section">
-            <h3>Official Forecasts</h3>
+        <section class="section-panel predictions-list-section">
+            <h3 style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 2px; color: var(--text-muted); margin-bottom: 16px; font-weight: 600;">Official Forecasts</h3>
             <div id="predictions-list" class="predictions-grid">
                 <!--Predictions will be added here dynamically -->
                 <p class="empty-state">No official forecasts yet.</p>
             </div>
         </section>
-        <h6 style="text-align: center; color:var(--text-muted);" >كل التوقعات الجوية صادرة من محللين خبراء بالمجال</h6>
+        
+        <h6 style="text-align: center; color:var(--text-muted); font-size: 0.75rem; margin-top: 10px; margin-bottom: 20px;">كل التوقعات الجوية صادرة من محللين خبراء بالمجال</h6>
 
-        <footer>
+        <footer class="section-panel" style="text-align: center; display: flex; justify-content: center; gap: 20px;">
             <a href="other.html" class="link-secondary">See what others are saying &rarr;</a>
+            <a href="admin.html" class="link-secondary" style="opacity: 0.5;">Admin Access &rarr;</a>
         </footer>
     </div>
 

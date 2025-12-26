@@ -124,7 +124,7 @@ async function displayPredictions(predictions) {
     // LIVE KUWAIT WEATHER CARD (Only on other.html)
     // -----------------------------
     // Check if we're on other.html - only show live weather there
-    const isOtherPage = window.location.pathname.includes('other.html');
+    const isOtherPage = window.location.pathname.includes('other.html') || document.title.includes('Kuwait Live Weather');
     
     if (isOtherPage) {
         const liveWeather = await fetchLiveKuwaitWeather();
@@ -134,7 +134,7 @@ async function displayPredictions(predictions) {
 
             liveCard.innerHTML = `
                 <div class="weather-icon">
-                    <img src="https://openweathermap.org/img/wn/${liveWeather.icon}@2x.png" alt="">
+                    <img src="https://openweathermap.org/img/wn/${liveWeather.icon}@2x.png" alt="" style="width: 40px; height: 40px;">
                 </div>
                 <div class="prediction-details">
                     <h4>Kuwait (Live Now)</h4>
@@ -158,83 +158,87 @@ async function displayPredictions(predictions) {
         return dateStr;
     }
     
-    // Update main header on index.html
-    if (targetDateDisplay && predictions.length > 0) {
-        const normalizedDate = normalizeDate(predictions[0].date);
-        const latestDate = new Date(normalizedDate);
+    // Update main header on index.html to ALWAYS show today's date
+    if (targetDateDisplay) {
+        const today = new Date();
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        targetDateDisplay.textContent = latestDate.toLocaleDateString('en-US', options);
-    } else if (targetDateDisplay) {
-        targetDateDisplay.textContent = "Waiting for update...";
+        targetDateDisplay.textContent = today.toLocaleDateString('en-US', options);
     }
     
-    if (predictions.length === 0) {
-        listContainer.innerHTML += '<p class="empty-state">No official forecasts yet.</p>';
-        return;
-    }
-    
-    predictions.forEach((pred) => {
-        const card = document.createElement('div');
-        card.className = 'prediction-card';
-        
-        let icon = '❓';
-        if (pred.condition.includes('Sunny')) icon = '☀️';
-        else if (pred.condition.includes('Cloudy')) icon = '☁️';
-        else if (pred.condition.includes('Rainy')) icon = '🌧️';
-        else if (pred.condition.includes('Stormy')) icon = '⛈️';
-        else if (pred.condition.includes('Snowy')) icon = '❄️';
-        else if (pred.condition.includes('Windy')) icon = '💨';
-        else if (pred.condition.includes('drasy')) icon = '📚';
-        else if (pred.condition.includes('3aly')) icon = '🧑‍🧑‍🧒‍🧒';
-        
-        // Normalize and parse date
-        const normalizedDate = normalizeDate(pred.date);
-        const dateObj = new Date(normalizedDate + 'T00:00:00');
-        
-        // English month names
-        const englishMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
-                              'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const month = englishMonths[dateObj.getMonth()];
-        const day = dateObj.getDate();
-        const cardDate = `${month} ${day}`;
-        
-        // Handle "to date" if provided
-        let dateRange = cardDate;
-        if (pred.toDate) {
-            const normalizedToDate = normalizeDate(pred.toDate);
-            const toDateObj = new Date(normalizedToDate + 'T00:00:00');
-            const toMonth = englishMonths[toDateObj.getMonth()];
-            const toDay = toDateObj.getDate();
-            dateRange = `${cardDate} - ${toMonth} ${toDay}`;
+    // -----------------------------
+    // OFFICIAL FORECASTS (Only on index.html)
+    // -----------------------------
+    if (!isOtherPage) {
+        if (predictions.length === 0) {
+            listContainer.innerHTML += '<p class="empty-state">No official forecasts yet.</p>';
+            return;
         }
         
-        card.innerHTML = `
-            <div class="weather-icon">${icon}</div>
-            <div class="prediction-details">
-                <h4>
-                    ${pred.condition}
-                    <span style="font-size: 0.8rem; opacity: 0.6; font-weight: normal;">
-                        (${dateRange})
-                    </span>
-                </h4>
-                <p class="temp">${pred.temperature}°C</p>
-                ${pred.notes ? `<p class="note">${pred.notes}</p>` : ''}
-            </div>
-        `;
-        listContainer.appendChild(card);
-    });
+        predictions.forEach((pred) => {
+            const card = document.createElement('div');
+            card.className = 'prediction-card';
+            
+            let icon = '❓';
+            if (pred.condition.includes('Sunny')) icon = '☀️';
+            else if (pred.condition.includes('Cloudy')) icon = '☁️';
+            else if (pred.condition.includes('Rainy')) icon = '🌧️';
+            else if (pred.condition.includes('Stormy')) icon = '⛈️';
+            else if (pred.condition.includes('Snowy')) icon = '❄️';
+            else if (pred.condition.includes('Windy')) icon = '💨';
+            else if (pred.condition.includes('drasy')) icon = '📚';
+            else if (pred.condition.includes('3aly')) icon = '🧑‍🧑‍🧒‍🧒';
+            
+            // Normalize and parse date
+            const normalizedDate = normalizeDate(pred.date);
+            const dateObj = new Date(normalizedDate + 'T00:00:00');
+            
+            // English month names
+            const englishMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 
+                                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            const month = englishMonths[dateObj.getMonth()];
+            const day = dateObj.getDate();
+            const cardDate = `${month} ${day}`;
+            
+            // Handle "to date" if provided
+            let dateRange = cardDate;
+            if (pred.toDate) {
+                const normalizedToDate = normalizeDate(pred.toDate);
+                const toDateObj = new Date(normalizedToDate + 'T00:00:00');
+                const toMonth = englishMonths[toDateObj.getMonth()];
+                const toDay = toDateObj.getDate();
+                dateRange = `${cardDate} - ${toMonth} ${toDay}`;
+            }
+            
+            card.innerHTML = `
+                <div class="weather-icon">${icon}</div>
+                <div class="prediction-details">
+                    <h4>
+                        ${pred.condition}
+                        <span style="font-size: 0.8rem; opacity: 0.6; font-weight: normal;">
+                            (${dateRange})
+                        </span>
+                    </h4>
+                    <p class="temp">${pred.temperature}°C</p>
+                    ${pred.notes ? `<p class="note">${pred.notes}</p>` : ''}
+                </div>
+            `;
+            listContainer.appendChild(card);
+        });
+    }
 }
 
 // ----------------------------------
 // Initialize the app
 // ----------------------------------
 document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Display "Today" on other.html
+    // 1. Display "Today" on both pages immediately
     const inlineDateDisplay = document.getElementById('target-date-inline');
-    if (inlineDateDisplay) {
-        const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        inlineDateDisplay.textContent = new Date().toLocaleDateString('en-US', options);
-    }
+    const targetDateDisplay = document.getElementById('target-date-display');
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    const todayStr = new Date().toLocaleDateString('en-US', options);
+
+    if (inlineDateDisplay) inlineDateDisplay.textContent = todayStr;
+    if (targetDateDisplay) targetDateDisplay.textContent = todayStr;
     
     // 2. Load and display predictions
     async function loadAndDisplayPredictions() {
