@@ -309,31 +309,31 @@
                 <div class="analytics-date" id="analytics-date">Loading...</div>
             </div>
 
-            <!-- GitHub Settings -->
+            <!-- Supabase Settings -->
             <div class="section">
-                <h2>⚙️ GitHub Sync Settings</h2>
+                <h2>⚙️ Supabase Sync Settings</h2>
                 <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 15px;">
-                    Required for changes to appear on all devices. Your token is never saved in the code.
+                    Required for real-time cloud sync across all devices.
                 </p>
                 <div class="form-grid">
-                    <div class="form-group">
-                        <label>GitHub Username</label>
-                        <input type="text" id="gh-owner" placeholder="e.g., your-username">
-                    </div>
-                    <div class="form-group">
-                        <label>Repository Name</label>
-                        <input type="text" id="gh-repo" placeholder="e.g., Weather-main">
+                    <div class="form-group full-width">
+                        <label>Supabase Project URL</label>
+                        <input type="text" id="sb-url" placeholder="https://your-project.supabase.co">
                     </div>
                     <div class="form-group full-width">
-                        <label>Personal Access Token (PAT)</label>
-                        <input type="password" id="gh-token" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx">
+                        <label>Supabase Anon Key</label>
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <input type="password" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." style="padding-right: 60px;">
+                            <button type="button" id="toggle-key" style="position: absolute; right: 5px; padding: 4px 8px; font-size: 0.75rem; background: #444; height: 32px; width: auto; margin-top: 0;" onclick="toggleKeyVisibility()">Show</button>
+                        </div>
                     </div>
                 </div>
                 <div class="form-actions" style="display: flex; gap: 10px; margin-top: 15px;">
-                    <button class="btn-primary" style="background: #10b981; flex: 1;" onclick="saveGitHubSettings()">Save Settings</button>
-                    <button class="btn-secondary" style="flex: 1;" onclick="testGitHubConnection()">Test Connection</button>
+                    <button class="btn-primary" style="background: #10b981; flex: 1;" onclick="saveSupabaseSettings()">Save Settings</button>
+                    <button class="btn-secondary" style="flex: 1;" onclick="testSupabaseConnection()">Test Connection</button>
                 </div>
-                <div id="gh-status" style="margin-top: 10px; font-size: 0.85rem; text-align: center; display: none;"></div>
+                <div id="sb-status" style="margin-top: 15px; padding: 10px; border-radius: 6px; font-size: 0.85rem; text-align: center; display: none; background: rgba(0,0,0,0.2);"></div>
+                <div id="sync-last-status" style="margin-top: 10px; font-size: 0.8rem; color: var(--text-muted); text-align: center;"></div>
             </div>
 
             <!-- Add New Prediction -->

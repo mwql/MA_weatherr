@@ -23,25 +23,46 @@ async function fetchLiveKuwaitWeather() {
 }
 
 // ----------------------------------
-// Fetch predictions from data.json (with cache busting)
+// Fetch predictions from Supabase (fallback to localStorage)
 // ----------------------------------
 async function loadPredictions() {
-    try {
-        // Always try to fetch from data.json first for cross-device sync
-        console.log('Fetching latest forecasts from data.json...');
-        const response = await fetch('data.json?t=' + Date.now());
-        
-        if (response.ok) {
-            const data = await response.json();
-            // Update localStorage as a local cache
-            localStorage.setItem('weatherPredictions', JSON.stringify(data));
-            return data;
+    const SB_SETTINGS_KEY = 'supabaseSyncSettings';
+    const storedSettings = localStorage.getItem(SB_SETTINGS_KEY);
+    
+    if (storedSettings) {
+        try {
+            const settings = JSON.parse(storedSettings);
+            const { url, key } = settings;
+            const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions?order=date.desc`;
+            
+            console.log('Fetching latest forecasts from Supabase...');
+            const response = await fetch(requestUrl, {
+                headers: { 
+                    'apikey': key,
+                    'Authorization': `Bearer ${key}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                // Map back to the expected local format
+                const normalizedData = data.map(p => ({
+                    date: p.date,
+                    toDate: p.to_date,
+                    temperature: p.temperature,
+                    condition: p.condition,
+                    notes: p.notes
+                }));
+                
+                localStorage.setItem('weatherPredictions', JSON.stringify(normalizedData));
+                return normalizedData;
+            }
+        } catch (error) {
+            console.error('Error fetching from Supabase:', error);
         }
-    } catch (error) {
-        console.error('Error fetching from data.json, trying localStorage:', error);
     }
     
-    // Fallback to localStorage if offline or fetch fails
+    // Fallback to localStorage if offline, fetch fails, or no settings
     const stored = localStorage.getItem('weatherPredictions');
     if (stored) {
         try {
@@ -51,6 +72,12 @@ async function loadPredictions() {
         }
     }
     
+    // Last fallback: static data.json (for initial load)
+    try {
+        const response = await fetch('data.json?t=' + Date.now());
+        if (response.ok) return await response.json();
+    } catch (e) {}
+
     return [];
 }
 

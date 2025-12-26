@@ -4,60 +4,94 @@
 
 const ADMIN_PASSWORD = '2'; // Password: 1+1=2
 const PREDICTIONS_STORAGE_KEY = 'weatherPredictions';
-const GH_SETTINGS_KEY = 'githubSyncSettings';
+const SB_SETTINGS_KEY = 'supabaseSyncSettings';
 
-// Load GitHub settings from localStorage
-function loadGitHubSettings() {
-    const stored = localStorage.getItem(GH_SETTINGS_KEY);
+// Make functions global immediately (Top of file to ensure they are available to UI)
+window.checkPassword = checkPassword;
+window.saveSupabaseSettings = saveSupabaseSettings;
+window.testSupabaseConnection = testSupabaseConnection;
+window.toggleKeyVisibility = toggleKeyVisibility;
+window.addForecast = addPrediction; // Alias for compatibility if needed
+window.addPrediction = addPrediction;
+window.deletePrediction = deletePrediction;
+
+// Load Supabase settings from localStorage
+function loadSupabaseSettings() {
+    console.log('Admin: loadSupabaseSettings called');
+    const stored = localStorage.getItem(SB_SETTINGS_KEY);
     if (stored) {
         try {
             const settings = JSON.parse(stored);
-            document.getElementById('gh-owner').value = settings.owner || '';
-            document.getElementById('gh-repo').value = settings.repo || '';
-            document.getElementById('gh-token').value = settings.token || '';
-            console.log('Admin: GitHub settings loaded');
+            if (document.getElementById('sb-url')) document.getElementById('sb-url').value = settings.url || '';
+            if (document.getElementById('sb-key')) document.getElementById('sb-key').value = settings.key || '';
+            console.log('Admin: Supabase settings loaded into UI');
         } catch (e) {
-            console.error('Admin: Error loading GitHub settings', e);
+            console.error('Admin: Error loading Supabase settings', e);
         }
     }
 }
 
-// Save GitHub settings to localStorage
-function saveGitHubSettings() {
-    const owner = document.getElementById('gh-owner').value.trim();
-    const repo = document.getElementById('gh-repo').value.trim();
-    const token = document.getElementById('gh-token').value.trim();
+// Save Supabase settings to localStorage
+function saveSupabaseSettings() {
+    console.log('Admin: saveSupabaseSettings triggered');
+    const urlInput = document.getElementById('sb-url');
+    const keyInput = document.getElementById('sb-key');
     
-    if (!owner || !repo || !token) {
-        alert('Please fill in all GitHub settings fields');
+    if (!urlInput || !keyInput) {
+        alert('Error: UI elements not found. Please refresh the page.');
+        return;
+    }
+
+    const url = urlInput.value.trim();
+    const key = keyInput.value.trim();
+    
+    if (!url || !key) {
+        alert('Please fill in both the Supabase URL and the Anon Key');
         return;
     }
     
-    const settings = { owner, repo, token };
-    localStorage.setItem(GH_SETTINGS_KEY, JSON.stringify(settings));
+    const settings = { url, key };
+    localStorage.setItem(SB_SETTINGS_KEY, JSON.stringify(settings));
     
     // Visual feedback
-    const status = document.getElementById('gh-status');
-    status.textContent = '✅ Settings saved locally!';
-    status.style.color = '#10b981';
-    status.style.display = 'block';
-    
-    console.log('Admin: GitHub settings saved');
-    
-    // Hide status after 3 seconds
-    setTimeout(() => {
-        status.style.display = 'none';
-    }, 3000);
+    const status = document.getElementById('sb-status');
+    if (status) {
+        status.textContent = '✅ Settings Saved Successfully!';
+        status.style.color = '#10b981';
+        status.style.display = 'block';
+        status.style.border = '1px solid #10b981';
+        
+        console.log('Admin: Supabase settings saved to localStorage');
+        
+        // Hide status after 4 seconds
+        setTimeout(() => {
+            status.style.display = 'none';
+        }, 4000);
+    } else {
+        alert('Settings saved successfully!');
+    }
 }
 
-// Test GitHub Connection
-async function testGitHubConnection() {
-    const owner = document.getElementById('gh-owner').value.trim();
-    const repo = document.getElementById('gh-repo').value.trim();
-    const token = document.getElementById('gh-token').value.trim();
-    const status = document.getElementById('gh-status');
+// Toggle Key Visibility
+function toggleKeyVisibility() {
+    const keyInput = document.getElementById('sb-key');
+    const toggleBtn = document.getElementById('toggle-key');
+    if (keyInput.type === 'password') {
+        keyInput.type = 'text';
+        toggleBtn.textContent = 'Hide';
+    } else {
+        keyInput.type = 'password';
+        toggleBtn.textContent = 'Show';
+    }
+}
+
+// Test Supabase Connection
+async function testSupabaseConnection() {
+    const url = document.getElementById('sb-url').value.trim();
+    const key = document.getElementById('sb-key').value.trim();
+    const status = document.getElementById('sb-status');
     
-    if (!owner || !repo || !token) {
+    if (!url || !key) {
         alert('Please fill in all fields before testing');
         return;
     }
@@ -66,82 +100,111 @@ async function testGitHubConnection() {
     status.style.color = '#cbd5e1';
     status.style.display = 'block';
     
-    const url = `https://api.github.com/repos/${owner}/${repo}/contents/data.json`;
+    // Test by fetching from predictions table
+    const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions?select=count`;
     
     try {
-        const response = await fetch(url, {
-            headers: { 'Authorization': `token ${token}` }
+        const response = await fetch(requestUrl, {
+            headers: { 
+                'apikey': key,
+                'Authorization': `Bearer ${key}`
+            }
         });
         
         if (response.ok) {
-            status.textContent = '✅ Connection Successful! Found data.json';
+            status.textContent = '✅ Connection Successful! Found predictions table';
             status.style.color = '#10b981';
+            status.style.border = '1px solid #10b981';
         } else {
             const error = await response.json();
-            status.textContent = '❌ Connection Failed: ' + (error.message || 'Unknown error');
+            let msg = error.message || 'Unknown error';
+            if (response.status === 401) msg = 'Invalid API Key (401)';
+            if (response.status === 404) msg = 'Table "predictions" not found (404)';
+            
+            status.textContent = '❌ Connection Failed: ' + msg;
             status.style.color = '#ef4444';
+            status.style.border = '1px solid #ef4444';
         }
     } catch (error) {
-        status.textContent = '❌ Error: ' + error.message;
+        status.textContent = '❌ Network Error: ' + error.message;
         status.style.color = '#ef4444';
+        status.style.border = '1px solid #ef4444';
     }
 }
 
-// Sync predictions to GitHub
-async function syncToGitHub(predictions) {
-    const stored = localStorage.getItem(GH_SETTINGS_KEY);
+// Sync predictions to Supabase
+async function syncToSupabase(predictions) {
+    const stored = localStorage.getItem(SB_SETTINGS_KEY);
     if (!stored) {
-        console.warn('Admin: GitHub settings not found, skipping sync');
+        console.warn('Admin: Supabase settings not found, skipping sync');
         return;
     }
     
     const settings = JSON.parse(stored);
-    const { owner, repo, token } = settings;
-    const path = 'data.json';
-    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+    const { url, key } = settings;
+    const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions`;
+    const lastStatus = document.getElementById('sync-last-status');
     
     try {
-        console.log('Admin: Syncing to GitHub...');
+        console.log('Admin: Syncing to Supabase...');
+        if (lastStatus) lastStatus.textContent = '⏳ Syncing...';
         
-        // 1. Get the current file's SHA
-        const getResponse = await fetch(url, {
-            headers: { 'Authorization': `token ${token}` }
+        // 1. Delete all existing records (PostgREST style)
+        // Note: For production, you might want to only delete specific records
+        const deleteResponse = await fetch(`${requestUrl}?id=gt.0`, {
+            method: 'DELETE',
+            headers: {
+                'apikey': key,
+                'Authorization': `Bearer ${key}`
+            }
         });
-        
-        let sha = null;
-        if (getResponse.ok) {
-            const fileData = await getResponse.json();
-            sha = fileData.sha;
+
+        if (!deleteResponse.ok) {
+            const errorData = await deleteResponse.json();
+            throw new Error(errorData.message || 'Failed to clear old predictions');
         }
         
-        // 2. Prepare the update
-        const content = btoa(unescape(encodeURIComponent(JSON.stringify(predictions, null, 2))));
-        const body = {
-            message: 'Update weather forecasts via Admin Panel',
-            content: content,
-            sha: sha // Required if file exists
-        };
+        // 2. Insert new records
+        if (predictions.length > 0) {
+            // Map predictions to table structure
+            const sbPredictions = predictions.map(p => ({
+                date: p.date,
+                to_date: p.toDate || null,
+                temperature: p.temperature,
+                condition: p.condition,
+                notes: p.notes || null
+            }));
+
+            const insertResponse = await fetch(requestUrl, {
+                method: 'POST',
+                headers: {
+                    'apikey': key,
+                    'Authorization': `Bearer ${key}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'return=minimal'
+                },
+                body: JSON.stringify(sbPredictions)
+            });
+
+            if (!insertResponse.ok) {
+                const errorData = await insertResponse.json();
+                throw new Error(errorData.message || 'Failed to insert new predictions');
+            }
+        }
         
-        // 3. Send the update
-        const putResponse = await fetch(url, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `token ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(body)
-        });
-        
-        if (putResponse.ok) {
-            console.log('Admin: GitHub sync successful!');
-        } else {
-            const errorData = await putResponse.json();
-            console.error('Admin: GitHub sync failed', errorData);
-            alert('GitHub Sync Failed: ' + (errorData.message || 'Unknown error'));
+        console.log('Admin: Supabase sync successful!');
+        if (lastStatus) {
+            const now = new Date();
+            lastStatus.textContent = `✅ Last sync: ${now.toLocaleTimeString()}`;
+            lastStatus.style.color = '#10b981';
         }
     } catch (error) {
-        console.error('Admin: Error syncing to GitHub', error);
-        alert('Error syncing to GitHub: ' + error.message);
+        console.error('Admin: Error syncing to Supabase', error);
+        if (lastStatus) {
+            lastStatus.textContent = `❌ Sync error: ${error.message}`;
+            lastStatus.style.color = '#ef4444';
+        }
+        alert('Supabase Sync Failed: ' + error.message);
     }
 }
 
@@ -151,6 +214,41 @@ let currentPredictions = [];
 // Initialize predictions
 async function initializePredictions() {
     console.log('Admin: Initializing predictions...');
+    
+    // 1. Try to fetch from Supabase if settings exist
+    const sbStored = localStorage.getItem(SB_SETTINGS_KEY);
+    if (sbStored) {
+        try {
+            const settings = JSON.parse(sbStored);
+            const { url, key } = settings;
+            const requestUrl = `${url.replace(/\/$/, '')}/rest/v1/predictions?order=date.desc`;
+            
+            console.log('Admin: Fetching from Supabase...');
+            const response = await fetch(requestUrl, {
+                headers: { 
+                    'apikey': key,
+                    'Authorization': `Bearer ${key}`
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const normalizedData = data.map(p => ({
+                    date: p.date,
+                    toDate: p.to_date,
+                    temperature: p.temperature,
+                    condition: p.condition,
+                    notes: p.notes
+                }));
+                localStorage.setItem(PREDICTIONS_STORAGE_KEY, JSON.stringify(normalizedData));
+                return normalizedData;
+            }
+        } catch (error) {
+            console.error('Admin: Error syncing from Supabase', error);
+        }
+    }
+
+    // 2. Fallback to localStorage
     const stored = localStorage.getItem(PREDICTIONS_STORAGE_KEY);
     if (stored) {
         try {
@@ -163,6 +261,7 @@ async function initializePredictions() {
         }
     }
     
+    // 3. Fallback to data.json
     try {
         console.log('Admin: Fetching from data.json...');
         const response = await fetch('data.json?t=' + Date.now());
@@ -204,7 +303,7 @@ function checkPassword() {
 
 // Load admin data
 async function loadAdminData() {
-    loadGitHubSettings(); // Load settings first
+    loadSupabaseSettings(); // Load settings first
     await loadPredictionsForAdmin();
     updateAnalytics();
     setInterval(updateAnalytics, 5000);
@@ -282,8 +381,8 @@ async function deletePrediction(index) {
             savePredictions(currentPredictions);
             displayPredictionsInAdmin(currentPredictions);
             
-            // Sync to GitHub
-            await syncToGitHub(currentPredictions);
+            // Sync to Supabase
+            await syncToSupabase(currentPredictions);
             
             console.log('Admin: Delete successful, list updated');
             if (!skipConfirm) alert('Prediction deleted successfully!');
@@ -328,8 +427,8 @@ async function addPrediction() {
         
         displayPredictionsInAdmin(currentPredictions);
         
-        // Sync to GitHub
-        await syncToGitHub(currentPredictions);
+        // Sync to Supabase
+        await syncToSupabase(currentPredictions);
         
         alert('Prediction added successfully!');
     } catch (error) {
@@ -337,15 +436,11 @@ async function addPrediction() {
     }
 }
 
-// Make functions global
-window.deletePrediction = deletePrediction;
-window.addPrediction = addPrediction;
-window.checkPassword = checkPassword;
-window.saveGitHubSettings = saveGitHubSettings;
-window.testGitHubConnection = testGitHubConnection;
-
+// Make functions global immediately
 // Enter key listeners
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('Admin: DOM Content Loaded');
+    
     // Password input
     const passwordInput = document.getElementById('admin-password');
     if (passwordInput) {
@@ -354,12 +449,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    // GitHub settings inputs
-    ['gh-owner', 'gh-repo', 'gh-token'].forEach(id => {
+    // Supabase settings inputs
+    ['sb-url', 'sb-key'].forEach(id => {
         const input = document.getElementById(id);
         if (input) {
             input.addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') saveGitHubSettings();
+                if (e.key === 'Enter') {
+                    console.log('Admin: Enter pressed on', id);
+                    saveSupabaseSettings();
+                }
             });
         }
     });
